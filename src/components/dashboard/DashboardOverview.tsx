@@ -1,11 +1,15 @@
 import { useMemo, useState } from 'react';
 import { storage } from '@/lib/localStorage';
 import { Contract, Revenue, Expense } from '@/types';
+import { useAuth } from '@/hooks/useAuth';
+import { Alert, AlertDescription, AlertTitle } from '@/components/ui/alert';
+import { Shield, Info } from 'lucide-react';
 import 'remixicon/fonts/remixicon.css';
 
 export function DashboardOverview() {
   const [selectedMonth, setSelectedMonth] = useState(new Date().getMonth() + 1);
   const [selectedYear, setSelectedYear] = useState(new Date().getFullYear());
+  const { isAdmin } = useAuth();
 
   const contracts: Contract[] = storage.contracts.get();
   const revenues: Revenue[] = storage.revenues.get();
@@ -56,6 +60,28 @@ export function DashboardOverview() {
 
   return (
     <div className="space-y-6">
+      {/* Access Level Alert for Non-Admin Users */}
+      {!isAdmin && (
+        <Alert className="border-primary/50 bg-primary/5">
+          <Info className="h-4 w-4 text-primary" />
+          <AlertTitle className="text-primary">Acesso Limitado</AlertTitle>
+          <AlertDescription className="text-muted-foreground">
+            Você está visualizando apenas o painel geral. Para acessar Contratos, Receitas e Despesas, 
+            é necessário ter permissão de administrador. Entre em contato com um administrador para solicitar acesso.
+          </AlertDescription>
+        </Alert>
+      )}
+
+      {isAdmin && (
+        <Alert className="border-success/50 bg-success/5">
+          <Shield className="h-4 w-4 text-success" />
+          <AlertTitle className="text-success">Acesso Completo</AlertTitle>
+          <AlertDescription className="text-muted-foreground">
+            Você possui acesso de administrador e pode visualizar e gerenciar todos os dados sensíveis da empresa.
+          </AlertDescription>
+        </Alert>
+      )}
+
       {/* Filters */}
       <div className="flex flex-col sm:flex-row gap-4 animate-fadeIn">
         <div className="flex-1">

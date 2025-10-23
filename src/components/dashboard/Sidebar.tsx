@@ -6,9 +6,9 @@ import 'remixicon/fonts/remixicon.css';
 
 const menuItems = [
   { name: 'Dashboard', path: '/dashboard', icon: 'ri-dashboard-line', requiresAdmin: false },
-  { name: 'Contratos', path: '/dashboard/contracts', icon: 'ri-file-list-3-line', requiresAdmin: false },
-  { name: 'Receitas', path: '/dashboard/revenues', icon: 'ri-money-dollar-circle-line', requiresAdmin: false },
-  { name: 'Despesas', path: '/dashboard/expenses', icon: 'ri-wallet-3-line', requiresAdmin: false },
+  { name: 'Contratos', path: '/dashboard/contracts', icon: 'ri-file-list-3-line', requiresAdmin: true },
+  { name: 'Receitas', path: '/dashboard/revenues', icon: 'ri-money-dollar-circle-line', requiresAdmin: true },
+  { name: 'Despesas', path: '/dashboard/expenses', icon: 'ri-wallet-3-line', requiresAdmin: true },
   { name: 'Administradores', path: '/dashboard/admin', icon: 'ri-shield-user-line', requiresAdmin: true },
 ];
 

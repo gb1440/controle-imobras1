@@ -7,6 +7,7 @@ import { ContractsManager } from '@/components/dashboard/ContractsManager';
 import { RevenueManager } from '@/components/dashboard/RevenueManager';
 import { ExpensesManager } from '@/components/dashboard/ExpensesManager';
 import { AdminManager } from '@/components/dashboard/AdminManager';
+import { ProtectedRoute } from '@/components/auth/ProtectedRoute';
 
 export default function Dashboard() {
   const { user, loading } = useAuth();
@@ -37,10 +38,38 @@ export default function Dashboard() {
       <main className="lg:ml-64 pt-20 lg:pt-0 p-4 sm:p-8">
         <Routes>
           <Route index element={<DashboardOverview />} />
-          <Route path="contracts" element={<ContractsManager />} />
-          <Route path="revenues" element={<RevenueManager />} />
-          <Route path="expenses" element={<ExpensesManager />} />
-          <Route path="admin" element={<AdminManager />} />
+          <Route 
+            path="contracts" 
+            element={
+              <ProtectedRoute requiresAdmin>
+                <ContractsManager />
+              </ProtectedRoute>
+            } 
+          />
+          <Route 
+            path="revenues" 
+            element={
+              <ProtectedRoute requiresAdmin>
+                <RevenueManager />
+              </ProtectedRoute>
+            } 
+          />
+          <Route 
+            path="expenses" 
+            element={
+              <ProtectedRoute requiresAdmin>
+                <ExpensesManager />
+              </ProtectedRoute>
+            } 
+          />
+          <Route 
+            path="admin" 
+            element={
+              <ProtectedRoute requiresAdmin>
+                <AdminManager />
+              </ProtectedRoute>
+            } 
+          />
         </Routes>
       </main>
     </div>
