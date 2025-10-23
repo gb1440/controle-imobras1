@@ -1,18 +1,12 @@
-import { useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
+import { useAuth } from '@/hooks/useAuth';
 import { Button } from '@/components/ui/button';
 import 'remixicon/fonts/remixicon.css';
+import { useEffect } from 'react';
 
 const Index = () => {
   const navigate = useNavigate();
-
-  useEffect(() => {
-    // Auto redirect to dashboard after 2 seconds
-    const timer = setTimeout(() => {
-      navigate('/dashboard');
-    }, 2000);
-    return () => clearTimeout(timer);
-  }, [navigate]);
+  const { user } = useAuth();
 
   return (
     <div className="flex min-h-screen items-center justify-center bg-gradient-to-br from-primary/5 via-background to-primary/10">
@@ -28,14 +22,16 @@ const Index = () => {
           </h1>
           <p className="text-xl text-muted-foreground">Sistema de Gestão Imobiliária</p>
         </div>
-        <Button 
-          onClick={() => navigate('/dashboard')}
-          size="lg"
-          className="animate-slideUp hover:scale-105 transition-transform"
-        >
-          <i className="ri-dashboard-line mr-2"></i>
-          Acessar Dashboard
-        </Button>
+        <div className="flex gap-4">
+          <Button 
+            onClick={() => navigate(user ? '/dashboard' : '/auth')}
+            size="lg"
+            className="animate-slideUp hover:scale-105 transition-transform"
+          >
+            <i className={`${user ? 'ri-dashboard-line' : 'ri-login-box-line'} mr-2`}></i>
+            {user ? 'Acessar Dashboard' : 'Fazer Login'}
+          </Button>
+        </div>
       </div>
     </div>
   );

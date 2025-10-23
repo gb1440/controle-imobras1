@@ -1,16 +1,28 @@
 import { useState } from 'react';
-import { NavLink } from 'react-router-dom';
+import { NavLink, useNavigate } from 'react-router-dom';
+import { useAuth } from '@/hooks/useAuth';
+import { Button } from '@/components/ui/button';
 import 'remixicon/fonts/remixicon.css';
 
 const menuItems = [
-  { name: 'Dashboard', path: '/dashboard', icon: 'ri-dashboard-line' },
-  { name: 'Contratos', path: '/dashboard/contracts', icon: 'ri-file-list-3-line' },
-  { name: 'Receitas', path: '/dashboard/revenues', icon: 'ri-money-dollar-circle-line' },
-  { name: 'Despesas', path: '/dashboard/expenses', icon: 'ri-wallet-3-line' },
+  { name: 'Dashboard', path: '/dashboard', icon: 'ri-dashboard-line', requiresAdmin: false },
+  { name: 'Contratos', path: '/dashboard/contracts', icon: 'ri-file-list-3-line', requiresAdmin: false },
+  { name: 'Receitas', path: '/dashboard/revenues', icon: 'ri-money-dollar-circle-line', requiresAdmin: false },
+  { name: 'Despesas', path: '/dashboard/expenses', icon: 'ri-wallet-3-line', requiresAdmin: false },
+  { name: 'Administradores', path: '/dashboard/admin', icon: 'ri-shield-user-line', requiresAdmin: true },
 ];
 
 export function Sidebar() {
   const [isOpen, setIsOpen] = useState(false);
+  const { isAdmin, signOut, user } = useAuth();
+  const navigate = useNavigate();
+
+  const handleLogout = async () => {
+    await signOut();
+    navigate('/auth');
+  };
+
+  const visibleMenuItems = menuItems.filter(item => !item.requiresAdmin || isAdmin);
 
   return (
     <>
@@ -34,7 +46,7 @@ export function Sidebar() {
         {isOpen && (
           <div className="absolute top-full left-0 right-0 bg-card border-b border-border animate-slideDown shadow-lg">
             <nav className="p-4 space-y-2">
-              {menuItems.map((item) => (
+              {visibleMenuItems.map((item) => (
                 <NavLink
                   key={item.path}
                   to={item.path}
@@ -51,6 +63,14 @@ export function Sidebar() {
                   <span className="font-medium">{item.name}</span>
                 </NavLink>
               ))}
+              <Button
+                onClick={handleLogout}
+                variant="outline"
+                className="w-full justify-start gap-3 mt-4"
+              >
+                <i className="ri-logout-box-line text-xl"></i>
+                <span className="font-medium">Sair</span>
+              </Button>
             </nav>
           </div>
         )}
@@ -70,7 +90,7 @@ export function Sidebar() {
         </div>
 
         <nav className="flex-1 p-4 space-y-2">
-          {menuItems.map((item, index) => (
+          {visibleMenuItems.map((item, index) => (
             <NavLink
               key={item.path}
               to={item.path}
@@ -89,7 +109,19 @@ export function Sidebar() {
           ))}
         </nav>
 
-        <div className="p-4 border-t border-border">
+        <div className="p-4 border-t border-border space-y-3">
+          <div className="px-3 py-2 bg-muted rounded-lg">
+            <p className="text-xs text-muted-foreground">Logado como:</p>
+            <p className="text-sm font-medium truncate">{user?.email}</p>
+          </div>
+          <Button
+            onClick={handleLogout}
+            variant="outline"
+            className="w-full justify-start gap-3"
+          >
+            <i className="ri-logout-box-line text-xl"></i>
+            <span className="font-medium">Sair</span>
+          </Button>
           <div className="text-xs text-muted-foreground text-center">
             © 2025 Imobrás
           </div>
