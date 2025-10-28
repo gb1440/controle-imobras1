@@ -1,99 +1,203 @@
 import { useState, useEffect } from 'react';
-import { storage } from '@/lib/localStorage';
-import { Expense } from '@/types';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
+import { useToast } from '@/hooks/use-toast';
+import { supabase } from '@/integrations/supabase/client';
+import { useAuth } from '@/hooks/useAuth';
 import 'remixicon/fonts/remixicon.css';
 
+interface DBExpense {
+  id: string;
+  description: string;
+  value: number;
+  due_date: string;
+  status: string;
+  bank: string;
+  payment_method: string;
+  month: number;
+  year: number;
+}
+
 export function ExpensesManager() {
-  const [expenses, setExpenses] = useState<Expense[]>([]);
+  const { toast } = useToast();
+  const { user } = useAuth();
+  const [expenses, setExpenses] = useState<DBExpense[]>([]);
   const [isFormOpen, setIsFormOpen] = useState(false);
   const [editingId, setEditingId] = useState<string | null>(null);
+  const [loading, setLoading] = useState(true);
   const [selectedMonth, setSelectedMonth] = useState(new Date().getMonth() + 1);
   const [selectedYear, setSelectedYear] = useState(new Date().getFullYear());
   const [formData, setFormData] = useState({
     description: '',
     value: 0,
-    dueDate: '',
-    status: 'pending' as 'paid' | 'pending',
+    due_date: '',
+    status: 'pending',
     bank: '',
-    paymentMethod: '',
+    payment_method: '',
   });
 
   useEffect(() => {
-    setExpenses(storage.expenses.get());
+    fetchExpenses();
   }, []);
 
-  const handleSubmit = (e: React.FormEvent) => {
+  const fetchExpenses = async () => {
+    try {
+      setLoading(true);
+      const { data, error } = await supabase
+        .from('expenses')
+        .select('*')
+        .order('created_at', { ascending: false });
+
+      if (error) throw error;
+      setExpenses(data || []);
+    } catch (error: any) {
+      toast({
+        title: 'Erro ao carregar despesas',
+        description: error.message,
+        variant: 'destructive',
+      });
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
+
+    if (!user) {
+      toast({
+        title: 'Erro',
+        description: 'Você precisa estar logado',
+        variant: 'destructive',
+      });
+      return;
+    }
     
-    const dueDate = new Date(formData.dueDate);
+    const dueDate = new Date(formData.due_date);
     const month = dueDate.getMonth() + 1;
     const year = dueDate.getFullYear();
 
-    if (editingId) {
-      const updated = expenses.map((exp) =>
-        exp.id === editingId
-          ? { ...formData, id: editingId, month, year }
-          : exp
-      );
-      setExpenses(updated);
-      storage.expenses.set(updated);
-    } else {
-      const newExpense: Expense = {
+    try {
+      const expenseData = {
         ...formData,
-        id: Date.now().toString(),
         month,
         year,
+        user_id: user.id,
       };
-      const updated = [...expenses, newExpense];
-      setExpenses(updated);
-      storage.expenses.set(updated);
-    }
 
-    resetForm();
+      if (editingId) {
+        const { error } = await supabase
+          .from('expenses')
+          .update(expenseData)
+          .eq('id', editingId);
+
+        if (error) throw error;
+        
+        toast({
+          title: 'Despesa atualizada',
+          description: 'A despesa foi atualizada com sucesso',
+        });
+      } else {
+        const { error } = await supabase
+          .from('expenses')
+          .insert([expenseData]);
+
+        if (error) throw error;
+        
+        toast({
+          title: 'Despesa criada',
+          description: 'A despesa foi criada com sucesso',
+        });
+      }
+
+      await fetchExpenses();
+      resetForm();
+    } catch (error: any) {
+      toast({
+        title: 'Erro ao salvar despesa',
+        description: error.message,
+        variant: 'destructive',
+      });
+    }
   };
 
-  const handleEdit = (expense: Expense) => {
+  const handleEdit = (expense: DBExpense) => {
     setFormData({
       description: expense.description,
       value: expense.value,
-      dueDate: expense.dueDate,
+      due_date: expense.due_date,
       status: expense.status,
       bank: expense.bank,
-      paymentMethod: expense.paymentMethod,
+      payment_method: expense.payment_method,
     });
     setEditingId(expense.id);
     setIsFormOpen(true);
   };
 
-  const handleDelete = (id: string) => {
-    if (window.confirm('Tem certeza que deseja excluir esta despesa?')) {
-      const updated = expenses.filter((e) => e.id !== id);
-      setExpenses(updated);
-      storage.expenses.set(updated);
+  const handleDelete = async (id: string) => {
+    if (!window.confirm('Tem certeza que deseja excluir esta despesa?')) return;
+
+    try {
+      const { error } = await supabase
+        .from('expenses')
+        .delete()
+        .eq('id', id);
+
+      if (error) throw error;
+
+      toast({
+        title: 'Despesa excluída',
+        description: 'A despesa foi excluída com sucesso',
+      });
+
+      await fetchExpenses();
+    } catch (error: any) {
+      toast({
+        title: 'Erro ao excluir despesa',
+        description: error.message,
+        variant: 'destructive',
+      });
     }
   };
 
-  const toggleStatus = (id: string) => {
-    const updated = expenses.map((exp) =>
-      exp.id === id
-        ? { ...exp, status: exp.status === 'paid' ? 'pending' : 'paid' as 'paid' | 'pending' }
-        : exp
-    );
-    setExpenses(updated);
-    storage.expenses.set(updated);
+  const toggleStatus = async (id: string) => {
+    try {
+      const expense = expenses.find((e) => e.id === id);
+      if (!expense) return;
+
+      const newStatus = expense.status === 'paid' ? 'pending' : 'paid';
+      
+      const { error } = await supabase
+        .from('expenses')
+        .update({ status: newStatus })
+        .eq('id', id);
+
+      if (error) throw error;
+
+      toast({
+        title: 'Status atualizado',
+        description: `Despesa marcada como ${newStatus === 'paid' ? 'paga' : 'pendente'}`,
+      });
+
+      await fetchExpenses();
+    } catch (error: any) {
+      toast({
+        title: 'Erro ao atualizar status',
+        description: error.message,
+        variant: 'destructive',
+      });
+    }
   };
 
   const resetForm = () => {
     setFormData({
       description: '',
       value: 0,
-      dueDate: '',
+      due_date: '',
       status: 'pending',
       bank: '',
-      paymentMethod: '',
+      payment_method: '',
     });
     setEditingId(null);
     setIsFormOpen(false);
@@ -122,6 +226,14 @@ export function ExpensesManager() {
       currency: 'BRL',
     }).format(value);
   };
+
+  if (loading) {
+    return (
+      <div className="flex items-center justify-center min-h-[400px]">
+        <p className="text-muted-foreground">Carregando despesas...</p>
+      </div>
+    );
+  }
 
   return (
     <div className="space-y-6">
@@ -233,8 +345,8 @@ export function ExpensesManager() {
                   id="dueDate"
                   type="date"
                   required
-                  value={formData.dueDate}
-                  onChange={(e) => setFormData({ ...formData, dueDate: e.target.value })}
+                  value={formData.due_date}
+                  onChange={(e) => setFormData({ ...formData, due_date: e.target.value })}
                 />
               </div>
             </div>
@@ -246,7 +358,7 @@ export function ExpensesManager() {
                   id="status"
                   required
                   value={formData.status}
-                  onChange={(e) => setFormData({ ...formData, status: e.target.value as 'paid' | 'pending' })}
+                  onChange={(e) => setFormData({ ...formData, status: e.target.value })}
                   className="w-full px-4 py-2 bg-background border border-border rounded-lg focus:ring-2 focus:ring-primary focus:border-transparent"
                 >
                   <option value="pending">Pendente</option>
@@ -267,8 +379,8 @@ export function ExpensesManager() {
                 <Input
                   id="paymentMethod"
                   required
-                  value={formData.paymentMethod}
-                  onChange={(e) => setFormData({ ...formData, paymentMethod: e.target.value })}
+                  value={formData.payment_method}
+                  onChange={(e) => setFormData({ ...formData, payment_method: e.target.value })}
                 />
               </div>
             </div>
@@ -310,9 +422,9 @@ export function ExpensesManager() {
                   <tr key={expense.id} className="border-t border-border hover:bg-muted/50 transition-colors">
                     <td className="px-4 py-3 text-sm">{expense.description}</td>
                     <td className="px-4 py-3 text-sm hidden sm:table-cell">{expense.bank}</td>
-                    <td className="px-4 py-3 text-sm hidden lg:table-cell">{expense.paymentMethod}</td>
+                    <td className="px-4 py-3 text-sm hidden lg:table-cell">{expense.payment_method}</td>
                     <td className="px-4 py-3 text-sm">
-                      {new Date(expense.dueDate).toLocaleDateString('pt-BR')}
+                      {new Date(expense.due_date).toLocaleDateString('pt-BR')}
                     </td>
                     <td className="px-4 py-3 text-sm font-bold text-destructive">
                       {formatCurrency(expense.value)}

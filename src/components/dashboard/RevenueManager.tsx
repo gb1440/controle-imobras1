@@ -1,53 +1,139 @@
 import { useState, useEffect } from 'react';
-import { storage } from '@/lib/localStorage';
-import { Revenue, Contract } from '@/types';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
+import { useToast } from '@/hooks/use-toast';
+import { supabase } from '@/integrations/supabase/client';
+import { useAuth } from '@/hooks/useAuth';
 import 'remixicon/fonts/remixicon.css';
 
+interface DBRevenue {
+  id: string;
+  contract_id: string;
+  type: string;
+  value: number;
+  month: number;
+  year: number;
+}
+
+interface DBContract {
+  id: string;
+  name: string;
+}
+
 export function RevenueManager() {
-  const [revenues, setRevenues] = useState<Revenue[]>([]);
-  const [contracts, setContracts] = useState<Contract[]>([]);
+  const { toast } = useToast();
+  const { user } = useAuth();
+  const [revenues, setRevenues] = useState<DBRevenue[]>([]);
+  const [contracts, setContracts] = useState<DBContract[]>([]);
   const [isFormOpen, setIsFormOpen] = useState(false);
+  const [loading, setLoading] = useState(true);
   const [selectedMonth, setSelectedMonth] = useState(new Date().getMonth() + 1);
   const [selectedYear, setSelectedYear] = useState(new Date().getFullYear());
   const [formData, setFormData] = useState({
-    contractId: '',
-    type: 'admin' as 'admin' | 'location' | 'insurance',
+    contract_id: '',
+    type: 'admin',
     value: 0,
     month: new Date().getMonth() + 1,
     year: new Date().getFullYear(),
   });
 
   useEffect(() => {
-    setRevenues(storage.revenues.get());
-    setContracts(storage.contracts.get());
+    fetchData();
   }, []);
 
-  const handleSubmit = (e: React.FormEvent) => {
-    e.preventDefault();
-    const newRevenue: Revenue = {
-      ...formData,
-      id: Date.now().toString(),
-    };
-    const updated = [...revenues, newRevenue];
-    setRevenues(updated);
-    storage.revenues.set(updated);
-    resetForm();
+  const fetchData = async () => {
+    try {
+      setLoading(true);
+      
+      const [revenuesResult, contractsResult] = await Promise.all([
+        supabase.from('revenues').select('*').order('created_at', { ascending: false }),
+        supabase.from('contracts').select('id, name').order('name'),
+      ]);
+
+      if (revenuesResult.error) throw revenuesResult.error;
+      if (contractsResult.error) throw contractsResult.error;
+
+      setRevenues(revenuesResult.data || []);
+      setContracts(contractsResult.data || []);
+    } catch (error: any) {
+      toast({
+        title: 'Erro ao carregar dados',
+        description: error.message,
+        variant: 'destructive',
+      });
+    } finally {
+      setLoading(false);
+    }
   };
 
-  const handleDelete = (id: string) => {
-    if (window.confirm('Tem certeza que deseja excluir esta receita?')) {
-      const updated = revenues.filter((r) => r.id !== id);
-      setRevenues(updated);
-      storage.revenues.set(updated);
+  const handleSubmit = async (e: React.FormEvent) => {
+    e.preventDefault();
+
+    if (!user) {
+      toast({
+        title: 'Erro',
+        description: 'Você precisa estar logado',
+        variant: 'destructive',
+      });
+      return;
+    }
+
+    try {
+      const { error } = await supabase
+        .from('revenues')
+        .insert([{
+          ...formData,
+          user_id: user.id,
+        }]);
+
+      if (error) throw error;
+
+      toast({
+        title: 'Receita criada',
+        description: 'A receita foi criada com sucesso',
+      });
+
+      await fetchData();
+      resetForm();
+    } catch (error: any) {
+      toast({
+        title: 'Erro ao criar receita',
+        description: error.message,
+        variant: 'destructive',
+      });
+    }
+  };
+
+  const handleDelete = async (id: string) => {
+    if (!window.confirm('Tem certeza que deseja excluir esta receita?')) return;
+
+    try {
+      const { error } = await supabase
+        .from('revenues')
+        .delete()
+        .eq('id', id);
+
+      if (error) throw error;
+
+      toast({
+        title: 'Receita excluída',
+        description: 'A receita foi excluída com sucesso',
+      });
+
+      await fetchData();
+    } catch (error: any) {
+      toast({
+        title: 'Erro ao excluir receita',
+        description: error.message,
+        variant: 'destructive',
+      });
     }
   };
 
   const resetForm = () => {
     setFormData({
-      contractId: '',
+      contract_id: '',
       type: 'admin',
       value: 0,
       month: new Date().getMonth() + 1,
@@ -87,6 +173,14 @@ export function RevenueManager() {
     location: 'bg-revenue-location',
     insurance: 'bg-revenue-insurance',
   };
+
+  if (loading) {
+    return (
+      <div className="flex items-center justify-center min-h-[400px]">
+        <p className="text-muted-foreground">Carregando receitas...</p>
+      </div>
+    );
+  }
 
   return (
     <div className="space-y-6">
@@ -162,8 +256,8 @@ export function RevenueManager() {
               <select
                 id="contract"
                 required
-                value={formData.contractId}
-                onChange={(e) => setFormData({ ...formData, contractId: e.target.value })}
+                value={formData.contract_id}
+                onChange={(e) => setFormData({ ...formData, contract_id: e.target.value })}
                 className="w-full px-4 py-2 bg-background border border-border rounded-lg focus:ring-2 focus:ring-primary focus:border-transparent"
               >
                 <option value="">Selecione um contrato</option>
@@ -268,8 +362,8 @@ export function RevenueManager() {
                 </tr>
               </thead>
               <tbody>
-                {filteredRevenues.map((revenue) => {
-                  const contract = contracts.find((c) => c.id === revenue.contractId);
+              {filteredRevenues.map((revenue) => {
+                  const contract = contracts.find((c) => c.id === revenue.contract_id);
                   return (
                     <tr key={revenue.id} className="border-t border-border hover:bg-muted/50 transition-colors">
                       <td className="px-4 py-3 text-sm font-semibold">{contract?.name || 'Contrato removido'}</td>

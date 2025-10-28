@@ -1,19 +1,52 @@
-import { useMemo, useState } from 'react';
-import { storage } from '@/lib/localStorage';
-import { Contract, Revenue, Expense } from '@/types';
+import { useMemo, useState, useEffect } from 'react';
 import { useAuth } from '@/hooks/useAuth';
 import { Alert, AlertDescription, AlertTitle } from '@/components/ui/alert';
 import { Shield, Info } from 'lucide-react';
+import { useToast } from '@/hooks/use-toast';
+import { supabase } from '@/integrations/supabase/client';
 import 'remixicon/fonts/remixicon.css';
 
 export function DashboardOverview() {
+  const { toast } = useToast();
   const [selectedMonth, setSelectedMonth] = useState(new Date().getMonth() + 1);
   const [selectedYear, setSelectedYear] = useState(new Date().getFullYear());
   const { isAdmin } = useAuth();
+  const [loading, setLoading] = useState(true);
+  const [contracts, setContracts] = useState<any[]>([]);
+  const [revenues, setRevenues] = useState<any[]>([]);
+  const [expenses, setExpenses] = useState<any[]>([]);
 
-  const contracts: Contract[] = storage.contracts.get();
-  const revenues: Revenue[] = storage.revenues.get();
-  const expenses: Expense[] = storage.expenses.get();
+  useEffect(() => {
+    fetchData();
+  }, []);
+
+  const fetchData = async () => {
+    try {
+      setLoading(true);
+      
+      const [contractsResult, revenuesResult, expensesResult] = await Promise.all([
+        supabase.from('contracts').select('*'),
+        supabase.from('revenues').select('*'),
+        supabase.from('expenses').select('*'),
+      ]);
+
+      if (contractsResult.error) throw contractsResult.error;
+      if (revenuesResult.error) throw revenuesResult.error;
+      if (expensesResult.error) throw expensesResult.error;
+
+      setContracts(contractsResult.data || []);
+      setRevenues(revenuesResult.data || []);
+      setExpenses(expensesResult.data || []);
+    } catch (error: any) {
+      toast({
+        title: 'Erro ao carregar dados',
+        description: error.message,
+        variant: 'destructive',
+      });
+    } finally {
+      setLoading(false);
+    }
+  };
 
   const stats = useMemo(() => {
     const monthRevenues = revenues.filter(
@@ -57,6 +90,14 @@ export function DashboardOverview() {
       currency: 'BRL',
     }).format(value);
   };
+
+  if (loading) {
+    return (
+      <div className="flex items-center justify-center min-h-[400px]">
+        <p className="text-muted-foreground">Carregando painel...</p>
+      </div>
+    );
+  }
 
   return (
     <div className="space-y-6">
@@ -198,7 +239,7 @@ export function DashboardOverview() {
           ) : (
             <div className="space-y-3 max-h-96 overflow-y-auto">
               {stats.monthRevenues.map((revenue) => {
-                const contract = contracts.find((c) => c.id === revenue.contractId);
+                const contract = contracts.find((c) => c.id === revenue.contract_id);
                 const typeLabels = { admin: 'Administração', location: 'Locação', insurance: 'Seguro' };
                 const typeColors = { admin: 'bg-revenue-admin', location: 'bg-revenue-location', insurance: 'bg-revenue-insurance' };
                 return (
@@ -229,12 +270,12 @@ export function DashboardOverview() {
             <div className="space-y-3 max-h-96 overflow-y-auto">
               {stats.monthExpenses.map((expense) => (
                 <div key={expense.id} className="flex items-center justify-between p-3 bg-muted rounded-lg hover:shadow-md transition-all">
-                  <div className="flex-1">
-                    <p className="text-sm font-medium">{expense.description}</p>
-                    <div className="flex items-center gap-2 mt-1">
-                      <span className="text-xs text-muted-foreground">{expense.bank}</span>
-                      <span className="text-xs text-muted-foreground">•</span>
-                      <span className="text-xs text-muted-foreground">{expense.paymentMethod}</span>
+                    <div className="flex-1">
+                      <p className="text-sm font-medium">{expense.description}</p>
+                      <div className="flex items-center gap-2 mt-1">
+                        <span className="text-xs text-muted-foreground">{expense.bank}</span>
+                        <span className="text-xs text-muted-foreground">•</span>
+                        <span className="text-xs text-muted-foreground">{expense.payment_method}</span>
                       <span className={`text-xs px-2 py-1 rounded-full ${expense.status === 'paid' ? 'bg-success text-white' : 'bg-warning text-white'}`}>
                         {expense.status === 'paid' ? 'Paga' : 'Pendente'}
                       </span>

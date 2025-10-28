@@ -1,79 +1,192 @@
 import { useState, useEffect } from 'react';
-import { storage } from '@/lib/localStorage';
-import { Contract } from '@/types';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
+import { useToast } from '@/hooks/use-toast';
+import { supabase } from '@/integrations/supabase/client';
+import { useAuth } from '@/hooks/useAuth';
 import 'remixicon/fonts/remixicon.css';
 
+interface DBContract {
+  id: string;
+  name: string;
+  owner_name: string;
+  owner_document: string;
+  tenant_name: string;
+  tenant_document: string;
+  property_address: string;
+  property_iptu: string;
+  property_due_day: number;
+  start_date: string;
+  end_date: string;
+  rent_value: number;
+  iptu_value: number;
+  admin_fee_percentage: number;
+}
+
 export function ContractsManager() {
-  const [contracts, setContracts] = useState<Contract[]>([]);
+  const { toast } = useToast();
+  const { user } = useAuth();
+  const [contracts, setContracts] = useState<DBContract[]>([]);
   const [isFormOpen, setIsFormOpen] = useState(false);
   const [editingId, setEditingId] = useState<string | null>(null);
-  const [formData, setFormData] = useState<Omit<Contract, 'id'>>({
+  const [loading, setLoading] = useState(true);
+  const [formData, setFormData] = useState({
     name: '',
-    owner: { name: '', document: '' },
-    tenant: { name: '', document: '' },
-    property: { address: '', iptu: '', dueDay: 1 },
-    contract: {
-      startDate: '',
-      endDate: '',
-      rentValue: 0,
-      iptuValue: 0,
-      adminFeePercentage: 0,
-    },
+    owner_name: '',
+    owner_document: '',
+    tenant_name: '',
+    tenant_document: '',
+    property_address: '',
+    property_iptu: '',
+    property_due_day: 1,
+    start_date: '',
+    end_date: '',
+    rent_value: 0,
+    iptu_value: 0,
+    admin_fee_percentage: 0,
   });
 
   useEffect(() => {
-    setContracts(storage.contracts.get());
+    fetchContracts();
   }, []);
 
-  const handleSubmit = (e: React.FormEvent) => {
-    e.preventDefault();
-    
-    if (editingId) {
-      const updated = contracts.map((c) =>
-        c.id === editingId ? { ...formData, id: editingId } : c
-      );
-      setContracts(updated);
-      storage.contracts.set(updated);
-    } else {
-      const newContract = { ...formData, id: Date.now().toString() };
-      const updated = [...contracts, newContract];
-      setContracts(updated);
-      storage.contracts.set(updated);
-    }
+  const fetchContracts = async () => {
+    try {
+      setLoading(true);
+      const { data, error } = await supabase
+        .from('contracts')
+        .select('*')
+        .order('created_at', { ascending: false });
 
-    resetForm();
+      if (error) throw error;
+      setContracts(data || []);
+    } catch (error: any) {
+      toast({
+        title: 'Erro ao carregar contratos',
+        description: error.message,
+        variant: 'destructive',
+      });
+    } finally {
+      setLoading(false);
+    }
   };
 
-  const handleEdit = (contract: Contract) => {
-    setFormData(contract);
+  const handleSubmit = async (e: React.FormEvent) => {
+    e.preventDefault();
+    
+    if (!user) {
+      toast({
+        title: 'Erro',
+        description: 'Você precisa estar logado',
+        variant: 'destructive',
+      });
+      return;
+    }
+
+    try {
+      const contractData = {
+        ...formData,
+        user_id: user.id,
+      };
+
+      if (editingId) {
+        const { error } = await supabase
+          .from('contracts')
+          .update(contractData)
+          .eq('id', editingId);
+
+        if (error) throw error;
+        
+        toast({
+          title: 'Contrato atualizado',
+          description: 'O contrato foi atualizado com sucesso',
+        });
+      } else {
+        const { error } = await supabase
+          .from('contracts')
+          .insert([contractData]);
+
+        if (error) throw error;
+        
+        toast({
+          title: 'Contrato criado',
+          description: 'O contrato foi criado com sucesso',
+        });
+      }
+
+      await fetchContracts();
+      resetForm();
+    } catch (error: any) {
+      toast({
+        title: 'Erro ao salvar contrato',
+        description: error.message,
+        variant: 'destructive',
+      });
+    }
+  };
+
+  const handleEdit = (contract: DBContract) => {
+    setFormData({
+      name: contract.name,
+      owner_name: contract.owner_name,
+      owner_document: contract.owner_document,
+      tenant_name: contract.tenant_name,
+      tenant_document: contract.tenant_document,
+      property_address: contract.property_address,
+      property_iptu: contract.property_iptu,
+      property_due_day: contract.property_due_day,
+      start_date: contract.start_date,
+      end_date: contract.end_date,
+      rent_value: contract.rent_value,
+      iptu_value: contract.iptu_value,
+      admin_fee_percentage: contract.admin_fee_percentage,
+    });
     setEditingId(contract.id);
     setIsFormOpen(true);
   };
 
-  const handleDelete = (id: string) => {
-    if (window.confirm('Tem certeza que deseja excluir este contrato?')) {
-      const updated = contracts.filter((c) => c.id !== id);
-      setContracts(updated);
-      storage.contracts.set(updated);
+  const handleDelete = async (id: string) => {
+    if (!window.confirm('Tem certeza que deseja excluir este contrato?')) return;
+
+    try {
+      const { error } = await supabase
+        .from('contracts')
+        .delete()
+        .eq('id', id);
+
+      if (error) throw error;
+
+      toast({
+        title: 'Contrato excluído',
+        description: 'O contrato foi excluído com sucesso',
+      });
+
+      await fetchContracts();
+    } catch (error: any) {
+      toast({
+        title: 'Erro ao excluir contrato',
+        description: error.message,
+        variant: 'destructive',
+      });
     }
   };
 
   const resetForm = () => {
     setFormData({
       name: '',
-      owner: { name: '', document: '' },
-      tenant: { name: '', document: '' },
-      property: { address: '', iptu: '', dueDay: 1 },
-      contract: {
-        startDate: '',
-        endDate: '',
-        rentValue: 0,
-        iptuValue: 0,
-        adminFeePercentage: 0,
-      },
+      owner_name: '',
+      owner_document: '',
+      tenant_name: '',
+      tenant_document: '',
+      property_address: '',
+      property_iptu: '',
+      property_due_day: 1,
+      start_date: '',
+      end_date: '',
+      rent_value: 0,
+      iptu_value: 0,
+      admin_fee_percentage: 0,
     });
     setEditingId(null);
     setIsFormOpen(false);
@@ -85,6 +198,14 @@ export function ContractsManager() {
       currency: 'BRL',
     }).format(value);
   };
+
+  if (loading) {
+    return (
+      <div className="flex items-center justify-center min-h-[400px]">
+        <p className="text-muted-foreground">Carregando contratos...</p>
+      </div>
+    );
+  }
 
   return (
     <div className="space-y-6">
@@ -131,8 +252,8 @@ export function ContractsManager() {
                   <Input
                     id="ownerName"
                     required
-                    value={formData.owner.name}
-                    onChange={(e) => setFormData({ ...formData, owner: { ...formData.owner, name: e.target.value } })}
+                    value={formData.owner_name}
+                    onChange={(e) => setFormData({ ...formData, owner_name: e.target.value })}
                   />
                 </div>
                 <div>
@@ -140,8 +261,8 @@ export function ContractsManager() {
                   <Input
                     id="ownerDoc"
                     required
-                    value={formData.owner.document}
-                    onChange={(e) => setFormData({ ...formData, owner: { ...formData.owner, document: e.target.value } })}
+                    value={formData.owner_document}
+                    onChange={(e) => setFormData({ ...formData, owner_document: e.target.value })}
                   />
                 </div>
               </div>
@@ -156,8 +277,8 @@ export function ContractsManager() {
                   <Input
                     id="tenantName"
                     required
-                    value={formData.tenant.name}
-                    onChange={(e) => setFormData({ ...formData, tenant: { ...formData.tenant, name: e.target.value } })}
+                    value={formData.tenant_name}
+                    onChange={(e) => setFormData({ ...formData, tenant_name: e.target.value })}
                   />
                 </div>
                 <div>
@@ -165,8 +286,8 @@ export function ContractsManager() {
                   <Input
                     id="tenantDoc"
                     required
-                    value={formData.tenant.document}
-                    onChange={(e) => setFormData({ ...formData, tenant: { ...formData.tenant, document: e.target.value } })}
+                    value={formData.tenant_document}
+                    onChange={(e) => setFormData({ ...formData, tenant_document: e.target.value })}
                   />
                 </div>
               </div>
@@ -181,8 +302,8 @@ export function ContractsManager() {
                   <Input
                     id="address"
                     required
-                    value={formData.property.address}
-                    onChange={(e) => setFormData({ ...formData, property: { ...formData.property, address: e.target.value } })}
+                    value={formData.property_address}
+                    onChange={(e) => setFormData({ ...formData, property_address: e.target.value })}
                   />
                 </div>
                 <div>
@@ -190,8 +311,8 @@ export function ContractsManager() {
                   <Input
                     id="iptu"
                     required
-                    value={formData.property.iptu}
-                    onChange={(e) => setFormData({ ...formData, property: { ...formData.property, iptu: e.target.value } })}
+                    value={formData.property_iptu}
+                    onChange={(e) => setFormData({ ...formData, property_iptu: e.target.value })}
                   />
                 </div>
                 <div>
@@ -202,8 +323,8 @@ export function ContractsManager() {
                     min="1"
                     max="31"
                     required
-                    value={formData.property.dueDay}
-                    onChange={(e) => setFormData({ ...formData, property: { ...formData.property, dueDay: Number(e.target.value) } })}
+                    value={formData.property_due_day}
+                    onChange={(e) => setFormData({ ...formData, property_due_day: Number(e.target.value) })}
                   />
                 </div>
               </div>
@@ -219,8 +340,8 @@ export function ContractsManager() {
                     id="startDate"
                     type="date"
                     required
-                    value={formData.contract.startDate}
-                    onChange={(e) => setFormData({ ...formData, contract: { ...formData.contract, startDate: e.target.value } })}
+                    value={formData.start_date}
+                    onChange={(e) => setFormData({ ...formData, start_date: e.target.value })}
                   />
                 </div>
                 <div>
@@ -229,8 +350,8 @@ export function ContractsManager() {
                     id="endDate"
                     type="date"
                     required
-                    value={formData.contract.endDate}
-                    onChange={(e) => setFormData({ ...formData, contract: { ...formData.contract, endDate: e.target.value } })}
+                    value={formData.end_date}
+                    onChange={(e) => setFormData({ ...formData, end_date: e.target.value })}
                   />
                 </div>
                 <div>
@@ -241,8 +362,8 @@ export function ContractsManager() {
                     step="0.01"
                     min="0"
                     required
-                    value={formData.contract.rentValue}
-                    onChange={(e) => setFormData({ ...formData, contract: { ...formData.contract, rentValue: Number(e.target.value) } })}
+                    value={formData.rent_value}
+                    onChange={(e) => setFormData({ ...formData, rent_value: Number(e.target.value) })}
                   />
                 </div>
                 <div>
@@ -253,8 +374,8 @@ export function ContractsManager() {
                     step="0.01"
                     min="0"
                     required
-                    value={formData.contract.iptuValue}
-                    onChange={(e) => setFormData({ ...formData, contract: { ...formData.contract, iptuValue: Number(e.target.value) } })}
+                    value={formData.iptu_value}
+                    onChange={(e) => setFormData({ ...formData, iptu_value: Number(e.target.value) })}
                   />
                 </div>
                 <div>
@@ -266,8 +387,8 @@ export function ContractsManager() {
                     min="0"
                     max="100"
                     required
-                    value={formData.contract.adminFeePercentage}
-                    onChange={(e) => setFormData({ ...formData, contract: { ...formData.contract, adminFeePercentage: Number(e.target.value) } })}
+                    value={formData.admin_fee_percentage}
+                    onChange={(e) => setFormData({ ...formData, admin_fee_percentage: Number(e.target.value) })}
                   />
                 </div>
               </div>
@@ -311,11 +432,11 @@ export function ContractsManager() {
                 contracts.map((contract) => (
                   <tr key={contract.id} className="border-t border-border hover:bg-muted/50 transition-colors">
                     <td className="px-4 py-3 text-sm font-semibold">{contract.name}</td>
-                    <td className="px-4 py-3 text-sm hidden sm:table-cell">{contract.property.address}</td>
-                    <td className="px-4 py-3 text-sm hidden sm:table-cell">{contract.owner.name}</td>
-                    <td className="px-4 py-3 text-sm hidden lg:table-cell">{contract.tenant.name}</td>
-                    <td className="px-4 py-3 text-sm font-medium">{formatCurrency(contract.contract.rentValue)}</td>
-                    <td className="px-4 py-3 text-sm hidden lg:table-cell">{contract.contract.adminFeePercentage}%</td>
+                    <td className="px-4 py-3 text-sm hidden sm:table-cell">{contract.property_address}</td>
+                    <td className="px-4 py-3 text-sm hidden sm:table-cell">{contract.owner_name}</td>
+                    <td className="px-4 py-3 text-sm hidden lg:table-cell">{contract.tenant_name}</td>
+                    <td className="px-4 py-3 text-sm font-medium">{formatCurrency(contract.rent_value)}</td>
+                    <td className="px-4 py-3 text-sm hidden lg:table-cell">{contract.admin_fee_percentage}%</td>
                     <td className="px-4 py-3">
                       <div className="flex items-center justify-center gap-2">
                         <button
