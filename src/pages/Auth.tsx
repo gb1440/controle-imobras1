@@ -114,80 +114,148 @@ export default function Auth() {
   };
 
   return (
-    <div className="min-h-screen flex items-center justify-center bg-gradient-to-br from-primary/10 via-background to-secondary/10 p-4">
-      <Card className="w-full max-w-md">
-        <CardHeader className="space-y-1">
-          <CardTitle className="text-2xl font-bold text-center">
-            {isLogin ? 'Fazer Login' : 'Criar Conta'}
-          </CardTitle>
-          <CardDescription className="text-center">
-            {isLogin
-              ? 'Entre com suas credenciais para acessar o sistema'
-              : 'Preencha os dados abaixo para criar sua conta'}
-          </CardDescription>
-        </CardHeader>
-        <CardContent>
-          <form onSubmit={handleSubmit} className="space-y-4">
-            {!isLogin && (
+    <div className="relative min-h-screen flex items-center justify-center bg-gradient-to-br from-primary/10 via-background to-secondary/10 p-4 overflow-hidden">
+      {/* Decorative background elements */}
+      <div className="absolute inset-0 overflow-hidden">
+        <div className="absolute top-20 right-20 h-64 w-64 rounded-full bg-primary/5 blur-3xl animate-pulse" />
+        <div className="absolute bottom-20 left-20 h-64 w-64 rounded-full bg-secondary/5 blur-3xl animate-pulse" style={{ animationDelay: '1s' }} />
+      </div>
+
+      {/* Back button */}
+      <button
+        onClick={() => navigate('/')}
+        className="absolute top-6 left-6 flex items-center gap-2 text-muted-foreground hover:text-foreground transition-colors"
+      >
+        <i className="ri-arrow-left-line text-xl"></i>
+        <span>Voltar</span>
+      </button>
+
+      <div className="relative z-10 w-full max-w-md">
+        <Card className="backdrop-blur-sm bg-card/95 shadow-xl border-border/50">
+          {/* Logo */}
+          <div className="flex justify-center pt-8 pb-2">
+            <div className="p-3 rounded-xl bg-primary/10">
+              <img 
+                src="https://static.readdy.ai/image/8922640e16fd21a79db256f5660ba49f/e6d05f2b346af2364d015029b0d365f5.png" 
+                alt="Imobrás" 
+                className="h-12"
+              />
+            </div>
+          </div>
+
+          <CardHeader className="space-y-2 pb-4">
+            <CardTitle className="text-3xl font-bold text-center bg-gradient-to-r from-primary to-secondary bg-clip-text text-transparent">
+              {isLogin ? 'Bem-vindo de volta' : 'Criar sua conta'}
+            </CardTitle>
+            <CardDescription className="text-center text-base">
+              {isLogin
+                ? 'Entre com suas credenciais para continuar'
+                : 'Preencha os dados para começar'}
+            </CardDescription>
+          </CardHeader>
+
+          <CardContent className="space-y-6">
+            <form onSubmit={handleSubmit} className="space-y-4">
+              {!isLogin && (
+                <div className="space-y-2">
+                  <Label htmlFor="fullName" className="text-sm font-medium">Nome Completo</Label>
+                  <div className="relative">
+                    <i className="ri-user-line absolute left-3 top-1/2 -translate-y-1/2 text-muted-foreground"></i>
+                    <Input
+                      id="fullName"
+                      type="text"
+                      placeholder="Seu nome completo"
+                      value={fullName}
+                      onChange={(e) => setFullName(e.target.value)}
+                      required
+                      disabled={loading}
+                      className="pl-10"
+                    />
+                  </div>
+                </div>
+              )}
+              
               <div className="space-y-2">
-                <Label htmlFor="fullName">Nome Completo</Label>
-                <Input
-                  id="fullName"
-                  type="text"
-                  placeholder="Seu nome completo"
-                  value={fullName}
-                  onChange={(e) => setFullName(e.target.value)}
-                  required
-                  disabled={loading}
-                />
+                <Label htmlFor="email" className="text-sm font-medium">Email</Label>
+                <div className="relative">
+                  <i className="ri-mail-line absolute left-3 top-1/2 -translate-y-1/2 text-muted-foreground"></i>
+                  <Input
+                    id="email"
+                    type="email"
+                    placeholder="seu@email.com"
+                    value={email}
+                    onChange={(e) => setEmail(e.target.value)}
+                    required
+                    disabled={loading}
+                    className="pl-10"
+                  />
+                </div>
               </div>
-            )}
-            
-            <div className="space-y-2">
-              <Label htmlFor="email">Email</Label>
-              <Input
-                id="email"
-                type="email"
-                placeholder="seu@email.com"
-                value={email}
-                onChange={(e) => setEmail(e.target.value)}
-                required
+              
+              <div className="space-y-2">
+                <Label htmlFor="password" className="text-sm font-medium">Senha</Label>
+                <div className="relative">
+                  <i className="ri-lock-line absolute left-3 top-1/2 -translate-y-1/2 text-muted-foreground"></i>
+                  <Input
+                    id="password"
+                    type="password"
+                    placeholder="••••••••"
+                    value={password}
+                    onChange={(e) => setPassword(e.target.value)}
+                    required
+                    disabled={loading}
+                    className="pl-10"
+                  />
+                </div>
+              </div>
+
+              <Button 
+                type="submit" 
+                className="w-full h-11 text-base shadow-md hover:shadow-lg transition-all" 
                 disabled={loading}
-              />
-            </div>
-            
-            <div className="space-y-2">
-              <Label htmlFor="password">Senha</Label>
-              <Input
-                id="password"
-                type="password"
-                placeholder="••••••••"
-                value={password}
-                onChange={(e) => setPassword(e.target.value)}
-                required
-                disabled={loading}
-              />
+              >
+                {loading ? (
+                  <>
+                    <i className="ri-loader-4-line animate-spin mr-2"></i>
+                    Processando...
+                  </>
+                ) : (
+                  <>
+                    <i className={`${isLogin ? 'ri-login-box-line' : 'ri-user-add-line'} mr-2`}></i>
+                    {isLogin ? 'Entrar' : 'Criar Conta'}
+                  </>
+                )}
+              </Button>
+            </form>
+
+            <div className="relative">
+              <div className="absolute inset-0 flex items-center">
+                <span className="w-full border-t border-border" />
+              </div>
+              <div className="relative flex justify-center text-xs uppercase">
+                <span className="bg-card px-2 text-muted-foreground">ou</span>
+              </div>
             </div>
 
-            <Button type="submit" className="w-full" disabled={loading}>
-              {loading ? 'Processando...' : isLogin ? 'Entrar' : 'Cadastrar'}
-            </Button>
-          </form>
-
-          <div className="mt-4 text-center text-sm">
             <button
               type="button"
               onClick={() => setIsLogin(!isLogin)}
-              className="text-primary hover:underline"
+              className="w-full text-sm text-center text-muted-foreground hover:text-primary transition-colors"
               disabled={loading}
             >
               {isLogin
-                ? 'Não tem uma conta? Cadastre-se'
+                ? 'Não tem uma conta? Cadastre-se gratuitamente'
                 : 'Já tem uma conta? Faça login'}
             </button>
-          </div>
-        </CardContent>
-      </Card>
+          </CardContent>
+        </Card>
+
+        {/* Security badge */}
+        <div className="mt-6 flex items-center justify-center gap-2 text-xs text-muted-foreground">
+          <i className="ri-shield-check-line text-primary"></i>
+          <span>Seus dados estão protegidos e criptografados</span>
+        </div>
+      </div>
     </div>
   );
 }
