@@ -27,6 +27,7 @@ export type Database = {
           property_address: string
           property_due_day: number
           property_iptu: string
+          property_type: string
           rent_value: number
           start_date: string
           tenant_document: string
@@ -46,6 +47,7 @@ export type Database = {
           property_address: string
           property_due_day: number
           property_iptu: string
+          property_type?: string
           rent_value: number
           start_date: string
           tenant_document: string
@@ -65,6 +67,7 @@ export type Database = {
           property_address?: string
           property_due_day?: number
           property_iptu?: string
+          property_type?: string
           rent_value?: number
           start_date?: string
           tenant_document?: string

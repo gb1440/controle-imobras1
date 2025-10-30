@@ -7,6 +7,7 @@ import { ContractsManager } from '@/components/dashboard/ContractsManager';
 import { RevenueManager } from '@/components/dashboard/RevenueManager';
 import { ExpensesManager } from '@/components/dashboard/ExpensesManager';
 import { AdminManager } from '@/components/dashboard/AdminManager';
+import YearlyOverview from '@/components/dashboard/YearlyOverview';
 import { ProtectedRoute } from '@/components/auth/ProtectedRoute';
 
 export default function Dashboard() {
@@ -38,6 +39,7 @@ export default function Dashboard() {
       <main className="lg:ml-64 pt-20 lg:pt-0 p-4 sm:p-8">
         <Routes>
           <Route index element={<DashboardOverview />} />
+          <Route path="yearly" element={<YearlyOverview />} />
           <Route 
             path="contracts" 
             element={

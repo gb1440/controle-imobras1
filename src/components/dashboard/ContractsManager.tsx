@@ -17,6 +17,7 @@ interface DBContract {
   property_address: string;
   property_iptu: string;
   property_due_day: number;
+  property_type: string;
   start_date: string;
   end_date: string;
   rent_value: number;
@@ -40,6 +41,7 @@ export function ContractsManager() {
     property_address: '',
     property_iptu: '',
     property_due_day: 1,
+    property_type: 'Apartamento',
     start_date: '',
     end_date: '',
     rent_value: 0,
@@ -136,6 +138,7 @@ export function ContractsManager() {
       property_address: contract.property_address,
       property_iptu: contract.property_iptu,
       property_due_day: contract.property_due_day,
+      property_type: contract.property_type,
       start_date: contract.start_date,
       end_date: contract.end_date,
       rent_value: contract.rent_value,
@@ -157,12 +160,13 @@ export function ContractsManager() {
 
       if (error) throw error;
 
+      // Update local state immediately
+      setContracts((prev) => prev.filter((contract) => contract.id !== id));
+
       toast({
         title: 'Contrato excluído',
         description: 'O contrato foi excluído com sucesso',
       });
-
-      await fetchContracts();
     } catch (error: any) {
       toast({
         title: 'Erro ao excluir contrato',
@@ -182,6 +186,7 @@ export function ContractsManager() {
       property_address: '',
       property_iptu: '',
       property_due_day: 1,
+      property_type: 'Apartamento',
       start_date: '',
       end_date: '',
       rent_value: 0,
@@ -197,6 +202,23 @@ export function ContractsManager() {
       style: 'currency',
       currency: 'BRL',
     }).format(value);
+  };
+
+  const propertyTypes = ['Loja', 'Casa', 'Apartamento', 'Galpão'];
+
+  const getPropertyTypeIcon = (type: string) => {
+    switch (type) {
+      case 'Loja':
+        return '🏪';
+      case 'Casa':
+        return '🏠';
+      case 'Apartamento':
+        return '🏢';
+      case 'Galpão':
+        return '🏭';
+      default:
+        return '🏢';
+    }
   };
 
   if (loading) {
@@ -229,8 +251,8 @@ export function ContractsManager() {
             {editingId ? 'Editar Contrato' : 'Novo Contrato'}
           </h3>
           <form onSubmit={handleSubmit} className="space-y-6">
-            {/* Contract Name */}
-            <div className="space-y-4">
+            {/* Contract Name and Type */}
+            <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
               <div>
                 <Label htmlFor="contractName">Nome/Identificação do Contrato</Label>
                 <Input
@@ -240,6 +262,22 @@ export function ContractsManager() {
                   value={formData.name}
                   onChange={(e) => setFormData({ ...formData, name: e.target.value })}
                 />
+              </div>
+              <div>
+                <Label htmlFor="property_type">Tipo de Imóvel</Label>
+                <select
+                  id="property_type"
+                  value={formData.property_type}
+                  onChange={(e) => setFormData({ ...formData, property_type: e.target.value })}
+                  className="flex h-10 w-full rounded-md border border-input bg-background px-3 py-2 text-sm ring-offset-background focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2"
+                  required
+                >
+                  {propertyTypes.map((type) => (
+                    <option key={type} value={type}>
+                      {getPropertyTypeIcon(type)} {type}
+                    </option>
+                  ))}
+                </select>
               </div>
             </div>
 
@@ -406,61 +444,87 @@ export function ContractsManager() {
         </div>
       )}
 
-      {/* Contracts List */}
-      <div className="bg-card rounded-xl border border-border overflow-hidden animate-slideUp">
-        <div className="overflow-x-auto">
-          <table className="w-full">
-            <thead className="bg-muted">
-              <tr>
-                <th className="px-4 py-3 text-left text-sm font-medium">Identificação</th>
-                <th className="px-4 py-3 text-left text-sm font-medium hidden sm:table-cell">Endereço</th>
-                <th className="px-4 py-3 text-left text-sm font-medium hidden sm:table-cell">Proprietário</th>
-                <th className="px-4 py-3 text-left text-sm font-medium hidden lg:table-cell">Inquilino</th>
-                <th className="px-4 py-3 text-left text-sm font-medium">Aluguel</th>
-                <th className="px-4 py-3 text-left text-sm font-medium hidden lg:table-cell">Taxa Admin</th>
-                <th className="px-4 py-3 text-center text-sm font-medium">Ações</th>
-              </tr>
-            </thead>
-            <tbody>
-              {contracts.length === 0 ? (
-                <tr>
-                  <td colSpan={6} className="px-4 py-8 text-center text-muted-foreground">
-                    Nenhum contrato cadastrado
-                  </td>
-                </tr>
-              ) : (
-                contracts.map((contract) => (
-                  <tr key={contract.id} className="border-t border-border hover:bg-muted/50 transition-colors">
-                    <td className="px-4 py-3 text-sm font-semibold">{contract.name}</td>
-                    <td className="px-4 py-3 text-sm hidden sm:table-cell">{contract.property_address}</td>
-                    <td className="px-4 py-3 text-sm hidden sm:table-cell">{contract.owner_name}</td>
-                    <td className="px-4 py-3 text-sm hidden lg:table-cell">{contract.tenant_name}</td>
-                    <td className="px-4 py-3 text-sm font-medium">{formatCurrency(contract.rent_value)}</td>
-                    <td className="px-4 py-3 text-sm hidden lg:table-cell">{contract.admin_fee_percentage}%</td>
-                    <td className="px-4 py-3">
-                      <div className="flex items-center justify-center gap-2">
-                        <button
-                          onClick={() => handleEdit(contract)}
-                          className="p-2 hover:bg-primary hover:text-primary-foreground rounded-lg transition-all"
-                          title="Editar"
-                        >
-                          <i className="ri-edit-line"></i>
-                        </button>
-                        <button
-                          onClick={() => handleDelete(contract.id)}
-                          className="p-2 hover:bg-destructive hover:text-destructive-foreground rounded-lg transition-all"
-                          title="Excluir"
-                        >
-                          <i className="ri-delete-bin-line"></i>
-                        </button>
-                      </div>
-                    </td>
-                  </tr>
-                ))
-              )}
-            </tbody>
-          </table>
-        </div>
+      {/* Contracts Cards */}
+      <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6 animate-fadeIn">
+        {contracts.length === 0 ? (
+          <div className="col-span-full text-center py-12">
+            <i className="ri-file-list-3-line text-6xl text-muted-foreground mb-4"></i>
+            <p className="text-lg text-muted-foreground">Nenhum contrato cadastrado</p>
+          </div>
+        ) : (
+          contracts.map((contract) => (
+            <div
+              key={contract.id}
+              className="bg-card border border-border rounded-xl overflow-hidden hover-scale transition-all"
+            >
+              {/* Card Header */}
+              <div className="bg-gradient-to-r from-primary/10 to-primary/5 p-4 border-b border-border">
+                <div className="flex items-start justify-between">
+                  <div className="flex items-center gap-3">
+                    <span className="text-4xl">{getPropertyTypeIcon(contract.property_type)}</span>
+                    <div>
+                      <h3 className="font-bold text-lg">{contract.name}</h3>
+                      <p className="text-sm text-muted-foreground">{contract.property_type}</p>
+                    </div>
+                  </div>
+                </div>
+              </div>
+
+              {/* Card Body */}
+              <div className="p-4 space-y-4">
+                <div className="space-y-2">
+                  <div className="flex items-start gap-2 text-sm">
+                    <i className="ri-map-pin-line text-primary mt-0.5"></i>
+                    <span className="flex-1">{contract.property_address}</span>
+                  </div>
+                  <div className="flex items-center gap-2 text-sm">
+                    <i className="ri-user-line text-primary"></i>
+                    <span>Inquilino: <strong>{contract.tenant_name}</strong></span>
+                  </div>
+                  <div className="flex items-center gap-2 text-sm">
+                    <i className="ri-home-4-line text-primary"></i>
+                    <span>Proprietário: <strong>{contract.owner_name}</strong></span>
+                  </div>
+                </div>
+
+                <div className="pt-4 border-t border-border">
+                  <div className="flex justify-between items-center mb-2">
+                    <span className="text-sm text-muted-foreground">Valor do Aluguel</span>
+                    <span className="text-2xl font-bold text-primary">
+                      {formatCurrency(contract.rent_value)}
+                    </span>
+                  </div>
+                  <div className="flex justify-between items-center text-sm">
+                    <span className="text-muted-foreground">Vencimento</span>
+                    <span className="font-medium">Dia {contract.property_due_day}</span>
+                  </div>
+                  <div className="flex justify-between items-center text-sm mt-1">
+                    <span className="text-muted-foreground">Taxa Admin</span>
+                    <span className="font-medium">{contract.admin_fee_percentage}%</span>
+                  </div>
+                </div>
+
+                {/* Actions */}
+                <div className="flex gap-2 pt-2">
+                  <button
+                    onClick={() => handleEdit(contract)}
+                    className="flex-1 flex items-center justify-center gap-2 px-4 py-2 bg-primary text-primary-foreground rounded-lg hover:bg-primary/90 transition-all"
+                  >
+                    <i className="ri-edit-line"></i>
+                    Editar
+                  </button>
+                  <button
+                    onClick={() => handleDelete(contract.id)}
+                    className="flex-1 flex items-center justify-center gap-2 px-4 py-2 bg-destructive text-destructive-foreground rounded-lg hover:bg-destructive/90 transition-all"
+                  >
+                    <i className="ri-delete-bin-line"></i>
+                    Excluir
+                  </button>
+                </div>
+              </div>
+            </div>
+          ))
+        )}
       </div>
     </div>
   );
