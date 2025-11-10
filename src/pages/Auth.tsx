@@ -13,18 +13,12 @@ const loginSchema = z.object({
   password: z.string().min(6, { message: "A senha deve ter no mínimo 6 caracteres" }).max(100),
 });
 
-const signupSchema = loginSchema.extend({
-  fullName: z.string().trim().min(2, { message: "Nome deve ter no mínimo 2 caracteres" }).max(100),
-});
-
 export default function Auth() {
-  const [isLogin, setIsLogin] = useState(true);
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
-  const [fullName, setFullName] = useState('');
   const [loading, setLoading] = useState(false);
   
-  const { signIn, signUp } = useAuth();
+  const { signIn } = useAuth();
   const navigate = useNavigate();
   const { toast } = useToast();
 
@@ -33,74 +27,38 @@ export default function Auth() {
     setLoading(true);
 
     try {
-      if (isLogin) {
-        const validation = loginSchema.safeParse({ email, password });
-        if (!validation.success) {
+      const validation = loginSchema.safeParse({ email, password });
+      if (!validation.success) {
+        toast({
+          title: "Erro de validação",
+          description: validation.error.errors[0].message,
+          variant: "destructive",
+        });
+        setLoading(false);
+        return;
+      }
+
+      const { error } = await signIn(email, password);
+      if (error) {
+        if (error.message.includes('Invalid login credentials')) {
           toast({
-            title: "Erro de validação",
-            description: validation.error.errors[0].message,
+            title: "Erro ao fazer login",
+            description: "Email ou senha incorretos",
             variant: "destructive",
           });
-          setLoading(false);
-          return;
-        }
-
-        const { error } = await signIn(email, password);
-        if (error) {
-          if (error.message.includes('Invalid login credentials')) {
-            toast({
-              title: "Erro ao fazer login",
-              description: "Email ou senha incorretos",
-              variant: "destructive",
-            });
-          } else {
-            toast({
-              title: "Erro ao fazer login",
-              description: error.message,
-              variant: "destructive",
-            });
-          }
         } else {
           toast({
-            title: "Login realizado com sucesso!",
-            description: "Bem-vindo de volta",
+            title: "Erro ao fazer login",
+            description: error.message,
+            variant: "destructive",
           });
-          navigate('/dashboard');
         }
       } else {
-        const validation = signupSchema.safeParse({ email, password, fullName });
-        if (!validation.success) {
-          toast({
-            title: "Erro de validação",
-            description: validation.error.errors[0].message,
-            variant: "destructive",
-          });
-          setLoading(false);
-          return;
-        }
-
-        const { error } = await signUp(email, password, fullName);
-        if (error) {
-          if (error.message.includes('User already registered')) {
-            toast({
-              title: "Erro ao cadastrar",
-              description: "Este email já está cadastrado",
-              variant: "destructive",
-            });
-          } else {
-            toast({
-              title: "Erro ao cadastrar",
-              description: error.message,
-              variant: "destructive",
-            });
-          }
-        } else {
-          toast({
-            title: "Cadastro realizado com sucesso!",
-            description: "Você já pode fazer login",
-          });
-          navigate('/dashboard');
-        }
+        toast({
+          title: "Login realizado com sucesso!",
+          description: "Bem-vindo de volta",
+        });
+        navigate('/dashboard');
       }
     } catch (error: any) {
       toast({
@@ -145,36 +103,15 @@ export default function Auth() {
 
           <CardHeader className="space-y-2 pb-4">
             <CardTitle className="text-3xl font-bold text-center bg-gradient-to-r from-primary to-secondary bg-clip-text text-transparent">
-              {isLogin ? 'Bem-vindo de volta' : 'Criar sua conta'}
+              Bem-vindo
             </CardTitle>
             <CardDescription className="text-center text-base">
-              {isLogin
-                ? 'Entre com suas credenciais para continuar'
-                : 'Preencha os dados para começar'}
+              Entre com suas credenciais para continuar
             </CardDescription>
           </CardHeader>
 
           <CardContent className="space-y-6">
             <form onSubmit={handleSubmit} className="space-y-4">
-              {!isLogin && (
-                <div className="space-y-2">
-                  <Label htmlFor="fullName" className="text-sm font-medium">Nome Completo</Label>
-                  <div className="relative">
-                    <i className="ri-user-line absolute left-3 top-1/2 -translate-y-1/2 text-muted-foreground"></i>
-                    <Input
-                      id="fullName"
-                      type="text"
-                      placeholder="Seu nome completo"
-                      value={fullName}
-                      onChange={(e) => setFullName(e.target.value)}
-                      required
-                      disabled={loading}
-                      className="pl-10"
-                    />
-                  </div>
-                </div>
-              )}
-              
               <div className="space-y-2">
                 <Label htmlFor="email" className="text-sm font-medium">Email</Label>
                 <div className="relative">
@@ -221,32 +158,12 @@ export default function Auth() {
                   </>
                 ) : (
                   <>
-                    <i className={`${isLogin ? 'ri-login-box-line' : 'ri-user-add-line'} mr-2`}></i>
-                    {isLogin ? 'Entrar' : 'Criar Conta'}
+                    <i className="ri-login-box-line mr-2"></i>
+                    Entrar
                   </>
                 )}
               </Button>
             </form>
-
-            <div className="relative">
-              <div className="absolute inset-0 flex items-center">
-                <span className="w-full border-t border-border" />
-              </div>
-              <div className="relative flex justify-center text-xs uppercase">
-                <span className="bg-card px-2 text-muted-foreground">ou</span>
-              </div>
-            </div>
-
-            <button
-              type="button"
-              onClick={() => setIsLogin(!isLogin)}
-              className="w-full text-sm text-center text-muted-foreground hover:text-primary transition-colors"
-              disabled={loading}
-            >
-              {isLogin
-                ? 'Não tem uma conta? Cadastre-se gratuitamente'
-                : 'Já tem uma conta? Faça login'}
-            </button>
           </CardContent>
         </Card>
 
