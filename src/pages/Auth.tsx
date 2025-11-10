@@ -14,11 +14,13 @@ const loginSchema = z.object({
 });
 
 export default function Auth() {
+  const [isFirstAccess, setIsFirstAccess] = useState(false);
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
+  const [fullName, setFullName] = useState('');
   const [loading, setLoading] = useState(false);
   
-  const { signIn } = useAuth();
+  const { signIn, signUp } = useAuth();
   const navigate = useNavigate();
   const { toast } = useToast();
 
@@ -27,38 +29,71 @@ export default function Auth() {
     setLoading(true);
 
     try {
-      const validation = loginSchema.safeParse({ email, password });
-      if (!validation.success) {
-        toast({
-          title: "Erro de validação",
-          description: validation.error.errors[0].message,
-          variant: "destructive",
-        });
-        setLoading(false);
-        return;
-      }
-
-      const { error } = await signIn(email, password);
-      if (error) {
-        if (error.message.includes('Invalid login credentials')) {
+      if (isFirstAccess) {
+        const validation = z.object({
+          email: z.string().email(),
+          password: z.string().min(6),
+          fullName: z.string().min(2),
+        }).safeParse({ email, password, fullName });
+        
+        if (!validation.success) {
           toast({
-            title: "Erro ao fazer login",
-            description: "Email ou senha incorretos",
+            title: "Erro de validação",
+            description: validation.error.errors[0].message,
+            variant: "destructive",
+          });
+          setLoading(false);
+          return;
+        }
+
+        const { error } = await signUp(email, password, fullName);
+        if (error) {
+          toast({
+            title: "Erro ao criar conta",
+            description: error.message,
             variant: "destructive",
           });
         } else {
           toast({
-            title: "Erro ao fazer login",
-            description: error.message,
-            variant: "destructive",
+            title: "Conta criada com sucesso!",
+            description: "Faça login para continuar",
           });
+          setIsFirstAccess(false);
         }
       } else {
-        toast({
-          title: "Login realizado com sucesso!",
-          description: "Bem-vindo de volta",
-        });
-        navigate('/dashboard');
+        const validation = loginSchema.safeParse({ email, password });
+        if (!validation.success) {
+          toast({
+            title: "Erro de validação",
+            description: validation.error.errors[0].message,
+            variant: "destructive",
+          });
+          setLoading(false);
+          return;
+        }
+
+        const { error } = await signIn(email, password);
+        if (error) {
+          if (error.message.includes('Invalid login credentials')) {
+            toast({
+              title: "Erro ao fazer login",
+              description: "Email ou senha incorretos",
+              variant: "destructive",
+            });
+          } else {
+            toast({
+              title: "Erro ao fazer login",
+              description: error.message,
+              variant: "destructive",
+            });
+          }
+        } else {
+          toast({
+            title: "Login realizado com sucesso!",
+            description: "Bem-vindo de volta",
+          });
+          navigate('/dashboard');
+        }
       }
     } catch (error: any) {
       toast({
@@ -103,15 +138,36 @@ export default function Auth() {
 
           <CardHeader className="space-y-2 pb-4">
             <CardTitle className="text-3xl font-bold text-center bg-gradient-to-r from-primary to-secondary bg-clip-text text-transparent">
-              Bem-vindo
+              {isFirstAccess ? 'Primeiro Acesso' : 'Bem-vindo'}
             </CardTitle>
             <CardDescription className="text-center text-base">
-              Entre com suas credenciais para continuar
+              {isFirstAccess 
+                ? 'Crie a conta principal do sistema' 
+                : 'Entre com suas credenciais para continuar'}
             </CardDescription>
           </CardHeader>
 
           <CardContent className="space-y-6">
             <form onSubmit={handleSubmit} className="space-y-4">
+              {isFirstAccess && (
+                <div className="space-y-2">
+                  <Label htmlFor="fullName" className="text-sm font-medium">Nome Completo</Label>
+                  <div className="relative">
+                    <i className="ri-user-line absolute left-3 top-1/2 -translate-y-1/2 text-muted-foreground"></i>
+                    <Input
+                      id="fullName"
+                      type="text"
+                      placeholder="Nome do administrador"
+                      value={fullName}
+                      onChange={(e) => setFullName(e.target.value)}
+                      required
+                      disabled={loading}
+                      className="pl-10"
+                    />
+                  </div>
+                </div>
+              )}
+
               <div className="space-y-2">
                 <Label htmlFor="email" className="text-sm font-medium">Email</Label>
                 <div className="relative">
@@ -119,7 +175,7 @@ export default function Auth() {
                   <Input
                     id="email"
                     type="email"
-                    placeholder="seu@email.com"
+                    placeholder={isFirstAccess ? "financeiro@imobrasbrasil.com.br" : "seu@email.com"}
                     value={email}
                     onChange={(e) => setEmail(e.target.value)}
                     required
@@ -158,12 +214,45 @@ export default function Auth() {
                   </>
                 ) : (
                   <>
-                    <i className="ri-login-box-line mr-2"></i>
-                    Entrar
+                    <i className={`${isFirstAccess ? 'ri-user-add-line' : 'ri-login-box-line'} mr-2`}></i>
+                    {isFirstAccess ? 'Criar Conta Principal' : 'Entrar'}
                   </>
                 )}
               </Button>
             </form>
+
+            {!isFirstAccess && (
+              <>
+                <div className="relative">
+                  <div className="absolute inset-0 flex items-center">
+                    <span className="w-full border-t border-border" />
+                  </div>
+                  <div className="relative flex justify-center text-xs uppercase">
+                    <span className="bg-card px-2 text-muted-foreground">ou</span>
+                  </div>
+                </div>
+
+                <button
+                  type="button"
+                  onClick={() => setIsFirstAccess(true)}
+                  className="w-full text-sm text-center text-muted-foreground hover:text-primary transition-colors"
+                  disabled={loading}
+                >
+                  Primeiro acesso? Criar conta principal
+                </button>
+              </>
+            )}
+
+            {isFirstAccess && (
+              <button
+                type="button"
+                onClick={() => setIsFirstAccess(false)}
+                className="w-full text-sm text-center text-muted-foreground hover:text-primary transition-colors"
+                disabled={loading}
+              >
+                Já tem uma conta? Fazer login
+              </button>
+            )}
           </CardContent>
         </Card>
 
